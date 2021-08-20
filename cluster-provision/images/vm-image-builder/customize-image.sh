@@ -11,6 +11,21 @@ function cleanup() {
   virsh undefine "${DOMAIN_NAME}" || true
 }
 
+function wait_for_vm_state() {
+  count=0
+  retries=100
+  until [[ $(virsh list --state-$1 --name |grep . ) =~ $DOMAIN_NAME || $count -gt $retries ]]; do
+    sleep 5
+    count=$((count + 1))
+  done
+  if [[ $count -gt $retries ]]; then
+    echo "Failed to find VM '$DOMAIN_NAME' in $1 state after waiting for "`expr $count \* $retries` "seconds"
+    return 1
+  else
+    echo "done"
+  fi
+}
+
 SOURCE_IMAGE_PATH=$1
 OS_VARIANT=$2
 CUSTOMIZE_IMAGE_PATH=$3
@@ -38,7 +53,10 @@ virt-install \
   --virt-type kvm \
   --graphics none \
   --network default \
-  --import
+  --import \
+  --noautoconsole
+
+wait_for_vm_state "shutoff"
 
 # Stop VM
 virsh destroy $DOMAIN_NAME || true
